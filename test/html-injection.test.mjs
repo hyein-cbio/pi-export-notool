@@ -6,7 +6,11 @@ test("injectNoToolCss adds CSS before an existing stylesheet closes", () => {
   const exported = "<html><head><style>.tool-execution { padding: 1rem; }</style></head><body></body></html>";
   const result = injectNoToolCss(exported);
 
-  assert.match(result, /\.tool-execution\s*\{\s*display: none !important;/);
+  assert.match(
+    result,
+    /\.tool-execution,\s*\.thinking-block,\s*\.assistant-message:not\(:has\(\.assistant-text\)\):has\(\.thinking-block\),\s*\.assistant-message:not\(:has\(\.assistant-text\)\):has\(\.tool-execution\)\s*\{\s*display: none !important;/,
+  );
+  assert.doesNotMatch(result, /padding-(?:top|bottom): 4px/);
   assert.ok(result.indexOf(HIDE_TOOL_BLOCKS_CSS) < result.indexOf("</style>"));
   assert.equal((result.match(/pi-export-notool: start/g) ?? []).length, 1);
 });

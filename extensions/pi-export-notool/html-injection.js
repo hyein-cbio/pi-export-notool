@@ -2,8 +2,11 @@ const START_MARKER = "/* pi-export-notool: start */";
 const END_MARKER = "/* pi-export-notool: end */";
 
 export const HIDE_TOOL_BLOCKS_CSS = `${START_MARKER}
-/* Keep the transcript readable while retaining Pi's original session data. */
-.tool-execution {
+/* Hide internal blocks and their otherwise-empty timestamp rows. */
+.tool-execution,
+.thinking-block,
+.assistant-message:not(:has(.assistant-text)):has(.thinking-block),
+.assistant-message:not(:has(.assistant-text)):has(.tool-execution) {
   display: none !important;
 }
 ${END_MARKER}`;
