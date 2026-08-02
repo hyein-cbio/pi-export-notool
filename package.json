@@ -1,12 +1,16 @@
 {
   "name": "pi-export-notool",
   "version": "0.1.0",
-  "description": "Blank Pi extension",
+  "description": "Export Pi sessions to HTML without visible tool-call blocks",
+  "type": "module",
   "keywords": [
     "pi-package",
     "pi-extension"
   ],
   "license": "MIT",
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
   "files": [
     "extensions",
     "README.md",
