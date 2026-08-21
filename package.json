@@ -1,6 +1,6 @@
 {
   "name": "pi-export-notool",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Export Pi sessions to HTML without visible tool-call blocks",
   "type": "module",
   "keywords": [
@@ -8,8 +8,15 @@
     "pi-extension"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hyein-cbio/pi-export-notool.git"
+  },
+  "homepage": "https://github.com/hyein-cbio/pi-export-notool#readme",
   "scripts": {
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test test/*.test.mjs",
+    "prepublishOnly": "npm test",
+    "publish:npm": "npm publish --access public"
   },
   "files": [
     "extensions",
@@ -23,5 +30,8 @@
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*"
+  },
+  "dependencies": {
+    "@sanity-labs/secret-scan": "1.1.0"
   }
 }
