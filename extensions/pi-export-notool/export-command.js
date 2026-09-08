@@ -3,8 +3,6 @@ import { tmpdir } from "node:os";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { parseExportArguments } from "./command-args.js";
 import { injectNoToolCss } from "./html-injection.js";
-import { createPublishHtml } from "./publish-export.js";
-import { findSensitiveInfo, formatSensitiveWarning } from "./sensitive-info.js";
 
 const EXPORT_TIMEOUT_MS = 60_000;
 
@@ -36,7 +34,17 @@ async function runPiExport(pi, sessionFile, outputPath, cwd) {
   }
 }
 
+async function loadPublishModules() {
+  // Keep sanitizer + secret-scan off the startup graph; they are publish-only.
+  const [{ createPublishHtml }, { findSensitiveInfo, formatSensitiveWarning }] = await Promise.all([
+    import("./publish-export.js"),
+    import("./sensitive-info.js"),
+  ]);
+  return { createPublishHtml, findSensitiveInfo, formatSensitiveWarning };
+}
+
 async function writePublishExport(pi, ctx, sessionFile, outputPath) {
+  const { createPublishHtml, findSensitiveInfo, formatSensitiveWarning } = await loadPublishModules();
   const temporaryDirectory = await mkdtemp(join(tmpdir(), "pi-export-notool-"));
   const temporaryOutput = join(temporaryDirectory, "export.html");
 
