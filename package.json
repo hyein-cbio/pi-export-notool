@@ -1,6 +1,6 @@
 {
   "name": "pi-export-notool",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Export Pi sessions to HTML without visible tool-call blocks",
   "type": "module",
   "keywords": [

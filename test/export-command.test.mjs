@@ -142,6 +142,47 @@ test("publish fails closed without confirmation UI and writes no destination", a
   }
 });
 
+test("default export always shows the session status even when CSS injection fails", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "pi-export-command-test-"));
+  try {
+    const output = join(directory, "plain.html");
+    const harness = commandHarness("<html><body>no stylesheet</body></html>");
+    const ctx = contextFor(directory, harness.notifications);
+
+    await harness.handler(output, ctx);
+
+    assert.equal(await readFile(output, "utf8"), "<html><body>no stylesheet</body></html>");
+    assert.ok(harness.notifications.some(
+      ({ message, level }) => level === "info" && message === `Session exported to: ${output}`,
+    ));
+    assert.ok(harness.notifications.some(
+      ({ message, level }) => level === "error" && message.includes("option injection failed"),
+    ));
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("default export shows the session status after CSS injection", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "pi-export-command-test-"));
+  try {
+    const output = join(directory, "hidden.html");
+    const harness = commandHarness("<html><head><style></style></head><body></body></html>");
+    const ctx = contextFor(directory, harness.notifications);
+
+    await harness.handler(output, ctx);
+
+    const html = await readFile(output, "utf8");
+    assert.match(html, /pi-export-notool: start/);
+    assert.ok(harness.notifications.some(
+      ({ message, level }) => level === "info" && message === `Session exported to: ${output}`,
+    ));
+    assert.equal(harness.notifications.some(({ level }) => level === "error"), false);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("confirmed publish writes only sanitized session data", async () => {
   const directory = await mkdtemp(join(tmpdir(), "pi-export-command-test-"));
   try {
@@ -159,7 +200,9 @@ test("confirmed publish writes only sanitized session data", async () => {
     assert.equal(serialized.includes("COMMAND_TOOL_ARG"), false);
     assert.equal(serialized.includes("COMMAND_TOOL_RESULT"), false);
     assert.equal(serialized.includes("Visible path"), true);
-    assert.ok(harness.notifications.some(({ message }) => message.includes("Publish HTML export written")));
+    assert.ok(harness.notifications.some(
+      ({ message, level }) => level === "info" && message.startsWith("Session exported to:"),
+    ));
     await assertTemporaryExportRemoved(harness.getTemporaryOutput());
   } finally {
     await rm(directory, { recursive: true, force: true });

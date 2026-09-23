@@ -34,6 +34,44 @@ async function runPiExport(pi, sessionFile, outputPath, cwd) {
   }
 }
 
+function errorMessage(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * Show the same chat status `/export` shows via showStatus.
+ * ctx.ui.notify(..., "info") is that handler. Re-emit on the next turn so a
+ * chat rebuild at the end of the command cannot drop the only copy.
+ */
+function showExportStatus(ctx, message, level = "info") {
+  const notify = ctx?.ui?.notify;
+  if (typeof notify !== "function") {
+    if (level === "error") console.error(message);
+    else console.log(message);
+    return;
+  }
+
+  notify.call(ctx.ui, message, level);
+  if (level !== "info") return;
+
+  const timer = setTimeout(() => {
+    try {
+      notify.call(ctx.ui, message, level);
+    } catch {
+      // The command already reported the status. A late chat rebuild must not crash.
+    }
+  }, 0);
+  timer.unref?.();
+}
+
+async function injectNoToolCssFile(outputPath) {
+  const html = await readFile(outputPath, "utf8");
+  const injected = injectNoToolCss(html);
+  if (injected !== html) {
+    await writeFile(outputPath, injected, "utf8");
+  }
+}
+
 async function loadPublishModules() {
   // Keep sanitizer + secret-scan off the startup graph; they are publish-only.
   const [{ createPublishHtml }, { findSensitiveInfo, formatSensitiveWarning }] = await Promise.all([
@@ -72,13 +110,14 @@ async function writePublishExport(pi, ctx, sessionFile, outputPath) {
       formatSensitiveWarning(findings),
     );
     if (!confirmed) {
-      ctx.ui.notify("Publish export cancelled; no file was written.", "info");
+      showExportStatus(ctx, "Publish export cancelled; no file was written.", "info");
       return undefined;
     }
   }
 
   await mkdir(dirname(outputPath), { recursive: true });
-  await writeFile(outputPath, injectNoToolCss(published.html), "utf8");
+  // Write the sanitized file first. CSS injection must not be required for the status.
+  await writeFile(outputPath, published.html, "utf8");
 
   return {
     removedItems: Object.values(published.stats).reduce((total, count) => total + count, 0),
@@ -91,7 +130,7 @@ export function createExportNoToolHandler(pi) {
   return async (args, ctx) => {
     const sessionFile = ctx.sessionManager.getSessionFile();
     if (!sessionFile) {
-      ctx.ui.notify("No saved session is available to export yet.", "error");
+      showExportStatus(ctx, "No saved session is available to export yet.", "error");
       return;
     }
 
@@ -102,25 +141,44 @@ export function createExportNoToolHandler(pi) {
       if (options.publish) {
         const result = await writePublishExport(pi, ctx, sessionFile, outputPath);
         if (!result) return;
-
-        const warningSuffix = result.sensitiveItems > 0
-          ? ` after confirming ${result.sensitiveItems} sensitive finding(s)`
-          : "";
-        ctx.ui.notify(
-          `Publish HTML export written to ${outputPath} (${result.removedItems} internal item(s) removed${warningSuffix})`,
-          "info",
-        );
+        await finishExport(ctx, outputPath, exportStatus(outputPath, result));
         return;
       }
 
       await mkdir(dirname(outputPath), { recursive: true });
       await runPiExport(pi, sessionFile, outputPath, ctx.cwd);
-      const html = await readFile(outputPath, "utf8");
-      await writeFile(outputPath, injectNoToolCss(html), "utf8");
-      ctx.ui.notify(`No-tool HTML export written to ${outputPath}`, "info");
+      await finishExport(ctx, outputPath, `Session exported to: ${outputPath}`);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      ctx.ui.notify(`No-tool export failed: ${message}`, "error");
+      showExportStatus(ctx, `No-tool export failed: ${errorMessage(error)}`, "error");
     }
   };
+}
+
+function exportStatus(outputPath, result) {
+  const warningSuffix = result.sensitiveItems > 0
+    ? ` after confirming ${result.sensitiveItems} sensitive finding(s)`
+    : "";
+  return `Session exported to: ${outputPath} (${result.removedItems} internal item(s) removed${warningSuffix})`;
+}
+
+/**
+ * Always show the export status, whether or not no-tool CSS injection succeeds.
+ * Injection is an extra display option and must not swallow the showStatus notify.
+ */
+async function finishExport(ctx, outputPath, message) {
+  let injectionError;
+  try {
+    await injectNoToolCssFile(outputPath);
+  } catch (error) {
+    injectionError = error;
+  }
+
+  showExportStatus(ctx, message, "info");
+  if (injectionError) {
+    showExportStatus(
+      ctx,
+      `No-tool option injection failed: ${errorMessage(injectionError)}`,
+      "error",
+    );
+  }
 }
