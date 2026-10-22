@@ -4,8 +4,6 @@ import { basename, dirname, extname, join, resolve } from "node:path";
 import { parseExportArguments } from "./command-args.js";
 import { injectNoToolCss } from "./html-injection.js";
 
-const EXPORT_TIMEOUT_MS = 60_000;
-
 function outputPathFor(options, cwd, sessionFile) {
   const sessionId = basename(sessionFile, ".jsonl");
   const defaultName = options.publish
@@ -18,20 +16,6 @@ function outputPathFor(options, cwd, sessionFile) {
   }
 
   return outputPath;
-}
-
-async function runPiExport(pi, sessionFile, outputPath, cwd) {
-  // Use Pi's own exporter so the output keeps the installed export template and theme.
-  const result = await pi.exec(
-    "pi",
-    ["--no-extensions", "--export", sessionFile, outputPath],
-    { cwd, timeout: EXPORT_TIMEOUT_MS },
-  );
-  if (result.killed || result.code !== 0) {
-    const stderr = typeof result.stderr === "string" ? result.stderr.trim() : "";
-    const stdout = typeof result.stdout === "string" ? result.stdout.trim() : "";
-    throw new Error(stderr || stdout || "Pi HTML export failed.");
-  }
 }
 
 function errorMessage(error) {
@@ -81,7 +65,7 @@ async function loadPublishModules() {
   return { createPublishHtml, findSensitiveInfo, formatSensitiveWarning };
 }
 
-async function writePublishExport(pi, ctx, sessionFile, outputPath) {
+async function writePublishExport(exportSession, ctx, outputPath) {
   const { createPublishHtml, findSensitiveInfo, formatSensitiveWarning } = await loadPublishModules();
   const temporaryDirectory = await mkdtemp(join(tmpdir(), "pi-export-notool-"));
   const temporaryOutput = join(temporaryDirectory, "export.html");
@@ -89,7 +73,7 @@ async function writePublishExport(pi, ctx, sessionFile, outputPath) {
   let published;
   try {
     // Never place Pi's unsanitized export at the requested publish path, even briefly.
-    await runPiExport(pi, sessionFile, temporaryOutput, ctx.cwd);
+    await exportSession(ctx, temporaryOutput);
     const sourceHtml = await readFile(temporaryOutput, "utf8");
     published = createPublishHtml(sourceHtml);
   } finally {
@@ -126,7 +110,7 @@ async function writePublishExport(pi, ctx, sessionFile, outputPath) {
 }
 
 /** Create the /export-notool handler. Exported separately for command-level tests. */
-export function createExportNoToolHandler(pi) {
+export function createExportNoToolHandler(exportSession) {
   return async (args, ctx) => {
     const sessionFile = ctx.sessionManager.getSessionFile();
     if (!sessionFile) {
@@ -139,14 +123,14 @@ export function createExportNoToolHandler(pi) {
       const outputPath = outputPathFor(options, ctx.cwd, sessionFile);
 
       if (options.publish) {
-        const result = await writePublishExport(pi, ctx, sessionFile, outputPath);
+        const result = await writePublishExport(exportSession, ctx, outputPath);
         if (!result) return;
         await finishExport(ctx, outputPath, exportStatus(outputPath, result));
         return;
       }
 
       await mkdir(dirname(outputPath), { recursive: true });
-      await runPiExport(pi, sessionFile, outputPath, ctx.cwd);
+      await exportSession(ctx, outputPath);
       await finishExport(ctx, outputPath, `Session exported to: ${outputPath}`);
     } catch (error) {
       showExportStatus(ctx, `No-tool export failed: ${errorMessage(error)}`, "error");

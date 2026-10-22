@@ -57,16 +57,13 @@ function sourceExportHtml() {
 function commandHarness(sourceHtml) {
   let temporaryOutput;
   const notifications = [];
-  const pi = {
-    async exec(_command, args) {
-      temporaryOutput = args.at(-1);
-      await writeFile(temporaryOutput, sourceHtml, "utf8");
-      return { code: 0, killed: false, stdout: "", stderr: "" };
-    },
+  const exportSession = async (_ctx, outputPath) => {
+    temporaryOutput = outputPath;
+    await writeFile(outputPath, sourceHtml, "utf8");
   };
 
   return {
-    handler: createExportNoToolHandler(pi),
+    handler: createExportNoToolHandler(exportSession),
     notifications,
     getTemporaryOutput: () => temporaryOutput,
   };

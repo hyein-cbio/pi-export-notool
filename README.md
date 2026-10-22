@@ -14,6 +14,12 @@ Pi's built-in `/export` remains unchanged. `/export-notool` creates an HTML vari
 
 If no path is supplied, it writes `pi-no-tools-<session-id>.html` in the current working directory. The output is created with Pi's built-in HTML exporter, then gets an idempotent stylesheet that hides `.tool-execution` and `.thinking-block` elements. The sidebar remains unchanged, so Pi's built-in **No-tools** toggle continues to work. Session data remains embedded in the file; the default command is display-only hiding.
 
+### Theme
+
+Exports preserve the **currently active Pi theme**, including light, dark, custom themes, and the terminal palette used by `system`. Both normal and publish exports capture the colors at export time; the HTML does not switch themes when the browser or terminal appearance changes later.
+
+The extension snapshots the active palette and uses the running Pi installation's own HTML exporter in an isolated process. Custom theme `export` background overrides are retained. Temporary theme files are removed after success or failure. This integration uses Pi's internal exporter modules and requires a Node.js Pi installation with its `dist` files.
+
 ### Publish mode
 
 For an HTML file intended to be shared, put `--publish` before the optional path:
@@ -38,6 +44,12 @@ Run its regression tests:
 
 ```bash
 npm test
+```
+
+To run the theme integration tests against a different installed Pi (including `system` on newer versions):
+
+```bash
+PI_TEST_PACKAGE_DIR=/path/to/pi-coding-agent node --test test/native-export.test.mjs
 ```
 
 Publish a tested public release:

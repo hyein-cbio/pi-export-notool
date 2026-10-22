@@ -43,11 +43,8 @@ const handlerSetup = `
   const directory = await mkdtemp(join(tmpdir(), "pi-export-notool-lazy-"));
   const output = join(directory, "out.html");
   const sourceHtml = "<html><head><style></style></head><body><script id=\\"session-data\\" type=\\"application/json\\">eyJoZWFkZXIiOnsidHlwZSI6InNlc3Npb24iLCJ2ZXJzaW9uIjozLCJpZCI6IngiLCJ0aW1lc3RhbXAiOiIyMDI2LTA0LTAxVDAwOjAwOjAwLjAwMFoifSwiZW50cmllcyI6W10sImxlYWZJZCI6bnVsbH0=</script></body></html>";
-  const pi = {
-    async exec(_command, args) {
-      await writeFile(args.at(-1), sourceHtml, "utf8");
-      return { code: 0, killed: false, stdout: "", stderr: "" };
-    },
+  const exportSession = async (_ctx, outputPath) => {
+    await writeFile(outputPath, sourceHtml, "utf8");
   };
   const ctx = {
     cwd: directory,
@@ -56,7 +53,7 @@ const handlerSetup = `
     ui: { notify() {}, async confirm() { return true; } },
   };
   try {
-    await createExportNoToolHandler(pi)(COMMAND_ARGS, ctx);
+    await createExportNoToolHandler(exportSession)(COMMAND_ARGS, ctx);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -64,7 +61,10 @@ const handlerSetup = `
 
 test("importing the command handler does not load publish or secret-scan modules", () => {
   assert.deepEqual(
-    runProbe(`await import("./extensions/pi-export-notool/export-command.js");`),
+    runProbe(`
+      await import("./extensions/pi-export-notool/export-command.js");
+      await import("./extensions/pi-export-notool/native-export.js");
+    `),
     { publishExport: false, sensitiveInfo: false, secretScan: false },
   );
 });
