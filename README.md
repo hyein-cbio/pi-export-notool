@@ -46,7 +46,7 @@ Run its regression tests:
 npm test
 ```
 
-By default, `npm test` also validates `system` themes using the development Pi dependency. To run the theme integration tests against a different installed Pi:
+By default, `npm test` also validates `system` themes using the development Pi dependency (minimum 1.0.1, avoiding the vulnerable `brace-expansion` pinned by Pi 0.99.0–1.0.0). This test dependency does not impose a minimum Pi version on users; the peer dependency remains unrestricted. To test a different installed Pi (versions without the system-theme API skip the four `system` theme tests):
 
 ```bash
 PI_TEST_PACKAGE_DIR=/path/to/pi-coding-agent node --test test/native-export.test.mjs
