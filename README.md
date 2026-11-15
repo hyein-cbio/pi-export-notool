@@ -46,7 +46,11 @@ Run its regression tests:
 npm test
 ```
 
-By default, `npm test` also validates `system` themes using the development Pi dependency (minimum 1.0.1, avoiding the vulnerable `brace-expansion` pinned by Pi 0.99.0–1.0.0). This test dependency does not impose a minimum Pi version on users; the peer dependency remains unrestricted. To test a different installed Pi (versions without the system-theme API skip the four `system` theme tests):
+By default, `npm test` also validates `system` themes using the development Pi version resolved in `package-lock.json` (currently 1.5.2). The declared development range starts at 1.0.1, avoiding the vulnerable `brace-expansion` pinned by Pi 0.99.0–1.0.0. CI runs the full suite against both the lockfile-resolved Pi and Pi 1.0.1 so dependency refreshes do not silently remove baseline exporter coverage. These test dependencies do not impose a minimum Pi version on users; the peer dependency remains unrestricted, and exports use the running Pi installation.
+
+Pi pins its minimatch dependency, so updating minimatch from 10.2.6 to 11.0.3 also updates the development Pi from 1.0.1 to 1.5.2. This lockfile refresh includes related Pi, AWS SDK, Smithy, and other transitive development dependencies; it is not a minimatch-only change.
+
+To test a different installed Pi (versions without the system-theme API skip the four `system` theme tests):
 
 ```bash
 PI_TEST_PACKAGE_DIR=/path/to/pi-coding-agent node --test test/native-export.test.mjs
