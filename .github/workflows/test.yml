@@ -1,0 +1,38 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Pi ${{ matrix.pi }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pi: [locked, 1.0.1]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      # Keep the original exporter baseline covered when Dependabot refreshes Pi.
+      - name: Install baseline Pi without changing the lockfile
+        if: matrix.pi != 'locked'
+        env:
+          PI_VERSION: ${{ matrix.pi }}
+        run: |
+          npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund "@earendil-works/pi-coding-agent@$PI_VERSION"
+          node --input-type=module -e 'import assert from "node:assert/strict"; import { readFileSync } from "node:fs"; const pkg = JSON.parse(readFileSync("node_modules/@earendil-works/pi-coding-agent/package.json", "utf8")); assert.equal(pkg.version, process.env.PI_VERSION);'
+      - name: Run all tests, including native-export integration
+        run: npm test
+      - name: Ensure dependency manifests are unchanged
+        run: git diff --exit-code -- package.json package-lock.json
